@@ -379,7 +379,9 @@ class AfvalwijzerCard extends HTMLElement {
     if (!s) return [];
     const list = s.attributes && s.attributes.notifications;
     if (!Array.isArray(list)) return [];
-    return list.map(n => (typeof n === 'string'
+    if (!(parseFloat(s.state) > 0)) return [];
+    const byId = (x) => (x && typeof x === 'object' && x.id !== undefined ? Number(x.id) || 0 : 0);
+    return [...list].sort((x, y) => byId(y) - byId(x)).map(n => (typeof n === 'string'
       ? { title: '', content: n }
       : { title: n.title || n.name || '', content: n.content || n.message || n.text || '' }
     )).filter(n => n.title || n.content);
