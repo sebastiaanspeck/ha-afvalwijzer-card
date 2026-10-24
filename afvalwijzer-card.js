@@ -14,6 +14,7 @@ class AfvalwijzerCardEditor extends HTMLElement {
       title: config.title || 'Afvalkalender',
       entities: Array.isArray(config.entities) ? [...config.entities] : [],
       week_starts_on: config.week_starts_on || 'monday',
+      notifications_entity: config.notifications_entity || '',
     };
     this._render();
   }
@@ -107,6 +108,13 @@ class AfvalwijzerCardEditor extends HTMLElement {
         </div>
 
         <p class="hint">Typ om te filteren op entity ID</p>
+
+        <div class="sec" style="margin-top:16px">Meldingen (optioneel)</div>
+        <div class="erow">
+          <input type="text" id="afe-notif" value="${this._config.notifications_entity}"
+            placeholder="Entiteit met meldingen" autocomplete="off" />
+          <div class="dd" id="afe-dd-notif"></div>
+        </div>
       </div>`;
 
     // Title: fire on blur only
@@ -160,6 +168,32 @@ class AfvalwijzerCardEditor extends HTMLElement {
       });
     });
 
+    // Notifications entity
+    const notifEl = this.querySelector('#afe-notif');
+    const notifDd = this.querySelector('#afe-dd-notif');
+    const showNotifDd = () => {
+      const suggestions = this._getSuggestions(notifEl.value || 'notif');
+      if (!suggestions.length) { notifDd.classList.remove('open'); return; }
+      notifDd.innerHTML = suggestions.map(id => `<div class="opt" data-id="${id}">${id}</div>`).join('');
+      notifDd.querySelectorAll('.opt').forEach(opt => {
+        opt.addEventListener('mousedown', e => {
+          e.preventDefault();
+          this._config.notifications_entity = opt.dataset.id;
+          this._fire();
+        });
+      });
+      notifDd.classList.add('open');
+    };
+    notifEl.addEventListener('focus', showNotifDd);
+    notifEl.addEventListener('input', showNotifDd);
+    notifEl.addEventListener('blur', () => {
+      setTimeout(() => notifDd.classList.remove('open'), 200);
+      if (this._config.notifications_entity !== notifEl.value) {
+        this._config.notifications_entity = notifEl.value.trim();
+        this._fire();
+      }
+    });
+
     // Delete buttons
     this.querySelectorAll('[data-del]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -189,7 +223,7 @@ class AfvalwijzerCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: 'Afvalkalender', entities: [], week_starts_on: 'monday' };
+    return { title: 'Afvalkalender', entities: [], week_starts_on: 'monday', notifications_entity: '' };
   }
 
   setConfig(config) {
@@ -198,6 +232,7 @@ class AfvalwijzerCard extends HTMLElement {
       title: config.title || 'Afvalkalender',
       entities: Array.isArray(config.entities) ? config.entities : [],
       week_starts_on: config.week_starts_on || 'monday',
+      notifications_entity: config.notifications_entity || '',
     };
     this._render();
   }
@@ -332,6 +367,24 @@ class AfvalwijzerCard extends HTMLElement {
     return 'background:var(--secondary-background-color,#f5f5f5);color:var(--secondary-text-color,#888)';
   }
 
+  _escape(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  _getNotifications() {
+    const id = this._config.notifications_entity;
+    const s = id && this._hass.states[id];
+    if (!s) return [];
+    const list = s.attributes && s.attributes.notifications;
+    if (!Array.isArray(list)) return [];
+    return list.map(n => (typeof n === 'string'
+      ? { title: '', content: n }
+      : { title: n.title || n.name || '', content: n.content || n.message || n.text || '' }
+    )).filter(n => n.title || n.content);
+  }
+
   _render() {
     if (!this._hass || !this._config) return;
 
@@ -396,6 +449,12 @@ class AfvalwijzerCard extends HTMLElement {
       cardsHtml = `<p class="empty">Voeg entiteiten toe via de editor.</p>`;
     }
 
+    const notifHtml = this._getNotifications().map(n => `
+      <div class="notif">
+        ${n.title ? `<p class="notif-title">${this._escape(n.title)}</p>` : ''}
+        ${n.content ? `<p class="notif-content">${this._escape(n.content)}</p>` : ''}
+      </div>`).join('');
+
     this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; }
@@ -413,10 +472,14 @@ class AfvalwijzerCard extends HTMLElement {
         .right { text-align: right; flex-shrink: 0; }
         .date { font-size: 13px; font-weight: 500; color: var(--primary-text-color); margin: 0 0 4px; }
         .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+        .notif { border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; background: #FEF3D4; border-left: 4px solid #D4A017; }
+        .notif-title { font-size: 13px; font-weight: 500; color: #7A5000; margin: 0 0 2px; }
+        .notif-content { font-size: 12px; color: #7A5000; margin: 0; }
         .empty { font-size: 13px; color: var(--secondary-text-color,#888); text-align: center; padding: 16px 0; margin: 0; }
       </style>
       <ha-card>
         <p class="header">${this._config.title}</p>
+        ${notifHtml}
         ${cardsHtml}
       </ha-card>`;
   }

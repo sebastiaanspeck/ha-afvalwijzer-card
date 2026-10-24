@@ -53,6 +53,7 @@ Voeg een nieuwe kaart toe en zoek op **Afvalwijzer Card**. Je kunt entiteiten to
 type: custom:afvalwijzer-card
 title: Afvalkalender
 week_starts_on: monday   # of sunday
+notifications_entity: sensor.afvalwijzer_notifications   # optioneel
 entities:
   - sensor.afvalwijzer_restafval
   - sensor.afvalwijzer_gft
@@ -67,6 +68,7 @@ entities:
 | `title` | string | `Afvalkalender` | Titel van de kaart |
 | `entities` | list | verplicht | Lijst van sensor entiteiten |
 | `week_starts_on` | `monday` \| `sunday` | `monday` | Eerste dag van de week |
+| `notifications_entity` | string | — | Optioneel: sensor met het attribuut `notifications` (lijst met `title` en `content`); getoond boven de ophaaldata |
 
 ## Urgentie-niveaus
 
